@@ -9,9 +9,12 @@ my $dir = "/Users/mikeaalv/Documents/TCGA";
 
 
 #initial and curl
-my @project_ids = ("TCGA-READ","TCGA-BRCA","TCGA-COAD","TCGA-LUAD","TCGA-LUSC");    #should be project_id in TCGA
+my @project_ids = ("TCGA-BRCA","TCGA-OV","TCGA-ESCA","TCGA-CESC","TCGA-PRAD","TCGA-STAD","TCGA-THYM","TCGA-DLBC","TCGA-LUAD","TCGA-KICH","TCGA-KIRC","TCGA-CHOL");    #should be project_id in TCGA         "TCGA-READ","TCGA-BRCA","TCGA-COAD","TCGA-LUAD","TCGA-LUSC" #######test "TCGA-PCPG","TCGA-SARC","TCGA-UVM","TCGA-LAML","TCGA-SKCM","TCGA-KIRP","TCGA-UCS","TCGA-PAAD","TCGA-LUSC","TCGA-READ","TCGA-COAD","TCGA-MESO","TCGA-GBM","TCGA-LGG","TCGA-TGCT","TCGA-UCEC","TCGA-BLCA","TCGA-HNSC","TCGA-ACC","TCGA-LIHC","TCGA-THCA",
+open(OUTPUT_project, ">".$dir."/data/project_statistics") or die "$!\n";
+print OUTPUT_project "project_id\tcase_number\tCNV\tCNV_open\tSNV\tSNV_open\ttranscriptome\tgene\tgene_open\tmiRNA\tmiRNA_open\tisoform\tisoform_open\tclinical\tclinical_open\tbiospecimen\tbiospecimen_open\n";
 foreach my $project_id (@project_ids)
 {
+  print OUTPUT_project "$project_id\t";
   system("mkdir "."$dir/$project_id");
   my $level = "open";
   my $flag = 0; #flag 0 download open data, flag 1 download all data, if you had the necessary access; information for open data for flag 1 will be the same as all
@@ -46,7 +49,7 @@ foreach my $project_id (@project_ids)
   die "problem with finding the case count\n" if($i == scalar(@project_infor_arra));
   my $case_num = $project_infor_arra_num[$i]; #number of cases in the project
   $i = 0;
-
+  print OUTPUT_project "$case_num\t";
   #whole statistics of files in the project
   system("curl"." \'https://gdc-api.nci.nih.gov/files?filters=".$filter."&size=".$file_num."&format=TSV&pretty=true&from=1&fields=data_type,updated_datetime,file_name,submitter_id,file_id,file_size,state_comment,acl_0,created_datetime,md5sum,data_format,access,platform,state,data_category,type,file_state,experimental_strategy,analysis.workflow_type\' ".">$dir/".$project_id."/".$project_id."_file.tab");
   open(INPUT_files, $dir."/$project_id/".$project_id."_file.tab") or die "$!\n";
@@ -213,7 +216,7 @@ foreach my $project_id (@project_ids)
   $i = 0;
   #barcode uuid links
   open(OUTPUT_bar, ">".$dir."/$project_id/$project_id"."_barcode_uuid") or die "$!\n";
-  print OUTPUT_bar "UUID\tbarcode\n";
+  print OUTPUT_bar "barcode\tuuid\n";
   open(OUTPUT_relat_tree, ">".$dir."/$project_id/$project_id"."_case_relationship");
   print OUTPUT_relat_tree "$project_id\n";
 
@@ -237,7 +240,21 @@ foreach my $project_id (@project_ids)
   }
   $colum{"case_id"} = $i;
   $i = 0;
-
+  my $case_CNV = 0;
+  my $case_CNV_open = 0;
+  my $case_SNV = 0;
+  my $case_SNV_open = 0;
+  my $case_trans = 0;
+  my $case_gene = 0;
+  my $case_gene_open = 0;
+  my $case_miRNA = 0;
+  my $case_miRNA_open = 0;
+  my $case_isoform = 0;
+  my $case_isoform_open = 0;
+  my $case_clinical = 0;
+  my $case_clinical_open = 0;
+  my $case_specimen = 0;
+  my $case_specimen_open = 0;
   foreach my $line_case(@contents_case)
   {
     my @b = split("\t",$line_case);
@@ -257,12 +274,13 @@ foreach my $project_id (@project_ids)
         $i += 1;
     }
     die "error with file num in case\n" if($i == scalar(@file_case_num_top));
-    my $file_num_in_case = $i;
+    my $file_num_in_case = (split("\t",$file_case_num[1]))[$i];
     $i = 0;
     #get file information in a case
     my $file_case_uri = "curl"." \'https://gdc-api.nci.nih.gov/files?filters=".$filter_case."&size=".$file_num_in_case."&format=TSV&pretty=true&from=1\'";  #files of each case
     my @file_case = `$file_case_uri`;
-
+    #open(TEST_OPEN, ">/Users/mikeaalv/Documents/TCGA/test.o") or die"$!\n";
+    #print  TEST_OPEN "$file_case_uri\n";
     my @tops_case = split("\t",$file_case[0]);
     my %data_category_in_case;
     my %data_category_in_case_open;
@@ -271,13 +289,16 @@ foreach my $project_id (@project_ids)
     my %UUID_in_case;
     my %UUID_in_case_open;
     my %UUID_workflow_experimentalstragety;
+    my %data_type_in_case;
+    my %data_type_in_case_open;
     foreach my $top_case (@tops_case)
     {
         $colum{"access"} = $i if($top_case =~ m/access/);
         $colum{"data_category"} = $i if($top_case =~ m/data_category/);
         $colum{"experimental_strategy"} = $i if($top_case =~ m/experimental_strategy/);
         $colum{"UUID"} = $i if($top_case =~ m/file_id/);
-        $colum{"workflow"} = $i if($top_case =~ m/files.analysis.workflow_type/);
+        $colum{"workflow"} = $i if($top_case =~ m/analysis.workflow_type/);
+        $colum{"datatype"} = $i if($top_case =~ m/data_type/);
         $i += 1;
     }
     open(INPUT_specimen, "/Users/mikeaalv/Documents/TCGA/biospecimen/biospecimen.tab") or die "$!\n";   #please change your locations accordingly
@@ -293,12 +314,12 @@ foreach my $project_id (@project_ids)
       {
           my $filter_aliquo = uri_escape("{\"op\":\"and\",\"content\":[{\"op\":\"in\",\"content\":{\"field\":\"cases.samples.portions.analytes.aliquots.aliquot_id\",\"value\":[\"".$a_sp[1]."\"]}}]}");
           my $file_case_uri_aliquo = "curl"." \'https://gdc-api.nci.nih.gov/files?filters=".$filter_aliquo."&size=".$file_num_in_case."&format=TSV&pretty=true&from=1\'";  #files of each case
-          my @file_case = `$file_case_uri_aliquo`;
-          chomp @file_case;
-          $file_case[0] =~ s/[\r\n]//g;
-          if($file_case[0] ne "")
+          my @file_case_ali = `$file_case_uri_aliquo`;
+          chomp @file_case_ali;
+          $file_case_ali[0] =~ s/[\r\n]//g;
+          if($file_case_ali[0] ne "")
           {
-            my $top_line = $file_case[0];
+            my $top_line = $file_case_ali[0];
             my @b_sp = split("\t", $top_line);
             $i = 0;
             foreach my $ind_sp (@b_sp)
@@ -310,7 +331,7 @@ foreach my $project_id (@project_ids)
             }
             $i = 0;
             my %aliquot_data_cate;
-            foreach my $line_sp (@file_case[1..(scalar(@file_case)-1)])
+            foreach my $line_sp (@file_case_ali[1..(scalar(@file_case_ali)-1)])
             {
               chomp $line_sp;
               my @b_line = split("\t", $line_sp);
@@ -357,6 +378,14 @@ foreach my $project_id (@project_ids)
             {
                 $experimental_strategy_in_case_open{$a[$colum{"experimental_strategy"}]} = 1;
             }
+            if(exists $data_type_in_case_open{$a[$colum{"datatype"}]})
+            {
+                $data_type_in_case_open{$a[$colum{"datatype"}]} += 1;
+            }
+            else
+            {
+                $data_type_in_case_open{$a[$colum{"datatype"}]} = 1;
+            }
         }
         $UUID_in_case{$a[$colum{"UUID"}]} = $a[$colum{"data_category"}];
         if(exists $data_category_in_case{$a[$colum{"data_category"}]} )
@@ -376,12 +405,28 @@ foreach my $project_id (@project_ids)
         {
             $experimental_strategy_in_case{$a[$colum{"experimental_strategy"}]} = 1;
         }
+        if(exists $data_type_in_case{$a[$colum{"datatype"}]})
+        {
+            $data_type_in_case{$a[$colum{"datatype"}]} += 1;
+        }
+        else
+        {
+            $data_type_in_case{$a[$colum{"datatype"}]} = 1;
+        }
     }
     system("mkdir ".$dir."/".$project_id."/".$case_id);
     open(OUTPUT_case,">".$dir."/$project_id/$case_id/file_infor") or die "error in output case information";
     print OUTPUT_case "case_id:\t$case_id\n";
     print OUTPUT_case "UUID(open):\t".join("\t", keys %UUID_in_case_open)."\n\n";
     print OUTPUT_case "data_category\n".join("\t",(keys %data_category))."\n";
+
+    ##test
+    #foreach my $name_category_test (keys %data_category_in_case)
+    #{
+    #  my $test_a = join("\t",(keys %data_category));
+    #  die "\n********\nan error with category name:\t$name_category_test\n" if(!($test_a =~ m/$name_category_test/));
+    #}
+
     foreach my $name_category (keys %data_category)
     {
         if(exists $data_category_in_case{$name_category})
@@ -436,6 +481,25 @@ foreach my $project_id (@project_ids)
         }
     }
     close(OUTPUT_case);
+    my $data_category_in_case_com = join("\t", (keys %data_category_in_case));
+    my $data_category_in_case_open_com = join("\t", (keys %data_category_in_case_open));
+    my $data_type_in_case_com = join("\t", (keys %data_type_in_case));
+    my $data_type_in_case_open_com = join("\t", (keys %data_type_in_case_open));
+    $case_SNV += 1 if( $data_category_in_case_com =~ m/[Ss]imple\s+[Nn]ucleotide\s+[Vv]ariation/ or $data_category_in_case_com =~ m/[sS][Nn][Vv]/);
+    $case_SNV_open += 1 if($data_category_in_case_open_com =~ m/[Ss]imple\s+[Nn]ucleotide\s+[Vv]ariation/ or $data_category_in_case_open_com =~ m/[sS][Nn][Vv]/);
+    $case_CNV += 1 if($data_category_in_case_com =~ m/[Cc]opy\s+[Nn]umber\s+[Vv]ariation/ or $data_category_in_case_com =~ m/[Cc][Nn][Vv]/);
+    $case_CNV_open += 1 if($data_category_in_case_open_com =~ m/[Cc]opy\s+[Nn]umber\s+[Vv]ariation/ or $data_category_in_case_open_com =~ m/[Cc][Nn][Vv]/);
+    $case_trans += 1 if($data_category_in_case_com =~ m/[tT]ranscriptome\s+[pP]rofiling/ or $data_category_in_case_com =~ m/[gG]ene\s+[Ee]xpression/);
+    $case_gene += 1 if($data_type_in_case_com =~ m/[Gg]ene\s+[eE]xpression\s+[qQ]uantification/ and $data_category_in_case_com =~ m/[tT]ranscriptome\s+[pP]rofiling/);
+    $case_gene_open += 1 if($data_type_in_case_open_com =~ m/[Gg]ene\s+[eE]xpression\s+[qQ]uantification/ and $data_category_in_case_open_com =~ m/[tT]ranscriptome\s+[pP]rofiling/);
+    $case_miRNA += 1 if($data_type_in_case_com =~ m/[mM]i[rR][Nn][Aa]\s+[Ee]xpression\s+[qQ]uantification/ and $data_category_in_case_com =~ m/[tT]ranscriptome\s+[pP]rofiling/);
+    $case_miRNA_open += 1 if($data_type_in_case_open_com =~ m/[mM]i[rR][Nn][Aa]\s+[Ee]xpression\s+[qQ]uantification/ and $data_category_in_case_open_com =~ m/[tT]ranscriptome\s+[pP]rofiling/);
+    $case_isoform += 1 if($data_type_in_case_com =~ m/[Ii]soform\s+[eE]xpression\s+[qQ]uantification/ and $data_category_in_case_com =~ m/[tT]ranscriptome\s+[pP]rofiling/);
+    $case_isoform_open += 1 if($data_type_in_case_open_com =~ m/[Ii]soform\s+[eE]xpression\s+[qQ]uantification/ and $data_category_in_case_open_com =~ m/[tT]ranscriptome\s+[pP]rofiling/);
+    $case_clinical += 1 if($data_category_in_case_com =~ m/[cC]linical/);
+    $case_clinical_open += 1 if($data_category_in_case_open_com =~ m/[cC]linical/);
+    $case_specimen += 1 if($data_category_in_case_com =~ m/[Bb]iospecimen/);
+    $case_specimen_open += 1 if($data_category_in_case_open_com =~ m/[Bb]iospecimen/);
     #gdc-client if you don't have enough storage and internet, don't do the following
     system("mkdir ".$dir."/".$project_id."/".$case_id."/data");
     print "DOWNLOADing data of case $case_id\n";
@@ -463,7 +527,7 @@ foreach my $project_id (@project_ids)
         #system("mv ".$dir."/".$project_id."/".$case_id."/data/raw".$filename." ".$dir."/".$project_id."/".$case_id."/data/raw".$filename.$UUID_workflow_experimentalstragety{$uuid}) if($UUID_in_case_open{$uuid} =~ m/[Rr]aw [Ss]equencing [Dd]ata/);
         #system("mv ".$dir."/".$project_id."/".$case_id."/data/CNV".$filename." ".$dir."/".$project_id."/".$case_id."/data/CNV".$filename.$UUID_workflow_experimentalstragety{$uuid}) if($UUID_in_case_open{$uuid} =~ m/[cC]opy [Nn]umber [Vv]ariation/);
         #system("mv ".$dir."/".$project_id."/".$case_id."/data/biospecimen".$filename." ".$dir."/".$project_id."/".$case_id."/data/biospecimen".$filename.$UUID_workflow_experimentalstragety{$uuid}) if($UUID_in_case_open{$uuid} =~ m/[Bb]iospecimen/);
-    }
+      }
   #  foreach my $uuid (keys %UUID_in_case){}
   }
 }
@@ -473,4 +537,5 @@ print OUTPUT_stat "case with miRNA-Seq and RNA-Seq:\t".$case_rna_mirna_seq."\n";
 close(OUTPUT_stat);
 close(OUTPUT_relat_tree);
 close(OUTPUT_bar);
+print OUTPUT_project "$case_CNV\t$case_CNV_open\t$case_SNV\t$case_SNV_open\t$case_trans\t$case_gene\t$case_gene_open\t$case_miRNA\t$case_miRNA_open\t$case_isoform\t$case_isoform_open\t$case_clinical\t$case_clinical_open\t$case_specimen\t$case_specimen_open\n";
 }
